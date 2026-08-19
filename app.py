@@ -3,6 +3,7 @@ import torch.nn as nn
 from PIL import Image
 from torchvision import models, transforms
 import streamlit as st
+from streamlit_cropper import st_cropper
 
 MODEL_PATH = "crack_model.pt"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -35,10 +36,9 @@ def predict(model, transform, image, threshold):
     confidence = prob if label == "cracked" else 1 - prob
     return label, confidence, prob
 
-# UI
 
 st.set_page_config(page_title="Voedger — Crack Detection", page_icon="")
-st.title("Voedger — Structural Crack Detection")
+st.title("Voedger : Structural Crack Detection")
 st.caption("Upload a structural photo to check it for cracks.")
 
 threshold = st.slider(
@@ -65,15 +65,37 @@ except FileNotFoundError:
 transform = make_transform(img_size)
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file)
+    image = Image.open(uploaded_file).convert("RGB")
+
+    st.subheader("Crop")
+
+    ASPECT_RATIOS = {
+        "Free": None,
+        "1:1 (square)": (1, 1),
+        "4:3": (4, 3),
+        "3:4": (3, 4),
+        "16:9": (16, 9),
+        "9:16": (9, 16),
+    }
+    ratio_label = st.selectbox("Aspect ratio", list(ASPECT_RATIOS.keys()))
+    aspect_ratio = ASPECT_RATIOS[ratio_label]
+
+    cropped_image = st_cropper(
+        image,
+        realtime_update=True,
+        box_color="#FF4B4B",
+        aspect_ratio=aspect_ratio,
+        return_type="image",
+    )
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.image(image, caption="Input image", use_container_width=True)
+        st.image(cropped_image, caption="Cropped image (used for prediction)",
+                  use_container_width=True)
 
     with col2:
-        label, confidence, raw_prob = predict(model, transform, image, threshold)
+        label, confidence, raw_prob = predict(model, transform, cropped_image, threshold)
 
         if label == "cracked":
             st.error(f"### Crack detected")

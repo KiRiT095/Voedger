@@ -3,3 +3,4 @@ torch
 torchvision
 streamlit
 pillow
+streamlit-cropper
