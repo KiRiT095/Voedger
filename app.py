@@ -36,9 +36,10 @@ def predict(model, transform, image, threshold):
     confidence = prob if label == "cracked" else 1 - prob
     return label, confidence, prob
 
+# UI
 
 st.set_page_config(page_title="Voedger — Crack Detection", page_icon="")
-st.title("Voedger : Structural Crack Detection")
+st.title("Voedger — Structural Crack Detection")
 st.caption("Upload a structural photo to check it for cracks.")
 
 threshold = st.slider(
@@ -67,32 +68,47 @@ transform = make_transform(img_size)
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
 
-    st.subheader("Crop")
-
-    ASPECT_RATIOS = {
-        "Free": None,
-        "1:1 (square)": (1, 1),
-        "4:3": (4, 3),
-        "3:4": (3, 4),
-        "16:9": (16, 9),
-        "9:16": (9, 16),
-    }
-    ratio_label = st.selectbox("Aspect ratio", list(ASPECT_RATIOS.keys()))
-    aspect_ratio = ASPECT_RATIOS[ratio_label]
-
-    cropped_image = st_cropper(
-        image,
-        realtime_update=True,
-        box_color="#FF4B4B",
-        aspect_ratio=aspect_ratio,
-        return_type="image",
+    enable_crop = st.checkbox(
+        "Crop image before prediction",
+        value=False,
+        help="Off by default so the model sees the exact same full image "
+             "predict.py would. Turn this on to isolate a specific region.",
     )
+
+    if enable_crop:
+        ASPECT_RATIOS = {
+            "Free": None,
+            "1:1 (square)": (1, 1),
+            "4:3": (4, 3),
+            "3:4": (3, 4),
+            "16:9": (16, 9),
+            "9:16": (9, 16),
+        }
+        ratio_label = st.selectbox("Aspect ratio", list(ASPECT_RATIOS.keys()))
+        aspect_ratio = ASPECT_RATIOS[ratio_label]
+
+        st.caption(
+            "The crop box below does **not** start at the image edges. "
+            "Drag its corners out to the full frame unless you specifically "
+            "want to trim something out."
+        )
+
+        cropped_image = st_cropper(
+            image,
+            realtime_update=True,
+            box_color="#FF4B4B",
+            aspect_ratio=aspect_ratio,
+            return_type="image",
+        )
+    else:
+        cropped_image = image
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.image(cropped_image, caption="Cropped image (used for prediction)",
-                  use_container_width=True)
+        caption = "Cropped image (used for prediction)" if enable_crop else "Input image"
+        st.image(cropped_image, caption=caption, use_container_width=True)
+        st.caption(f"Size: {cropped_image.size[0]}×{cropped_image.size[1]} px")
 
     with col2:
         label, confidence, raw_prob = predict(model, transform, cropped_image, threshold)
